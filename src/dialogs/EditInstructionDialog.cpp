@@ -23,7 +23,26 @@ EditInstructionDialog::EditInstructionDialog(InstructionEditMode editMode, QWidg
 
 EditInstructionDialog::~EditInstructionDialog() {}
 
-void EditInstructionDialog::on_buttonBox_accepted() {}
+void EditInstructionDialog::on_buttonBox_accepted()
+{
+    QString input = ui->lineEdit->text();
+    QStringList instructionList = input.split(';', QString::SkipEmptyParts);
+
+    RVA offset = Core()->getOffset();
+
+    for (const QString &instruction : instructionList) {
+        QString trimmedInstruction = instruction.trimmed();
+        if (editMode == EDIT_BYTES) {
+            QByteArray data = CutterCore::hexStringToBytes(trimmedInstruction);
+            Core()->editBytes(offset, data);
+        } else if (editMode == EDIT_TEXT) {
+            Core()->editInstruction(offset, trimmedInstruction);
+        }
+        offset += 4; // Assuming MIPS instructions are always 4 bytes long
+    }
+
+    accept();
+}
 
 void EditInstructionDialog::on_buttonBox_rejected()
 {
@@ -59,11 +78,23 @@ void EditInstructionDialog::updatePreview(const QString &input)
         ui->instructionLabel->setText("");
         return;
     } else if (editMode == EDIT_BYTES) {
-        QByteArray data = CutterCore::hexStringToBytes(input);
-        result = Core()->disassemble(data).replace('\n', "; ");
+        QStringList bytesList = input.split(';', QString::SkipEmptyParts);
+        QStringList disassembledInstructions;
+        for (const QString &bytes : bytesList) {
+            QByteArray data = CutterCore::hexStringToBytes(bytes.trimmed());
+            QString disassembled = Core()->disassemble(data).replace('\n', "; ");
+            disassembledInstructions.append(disassembled);
+        }
+        result = disassembledInstructions.join("\n");
     } else if (editMode == EDIT_TEXT) {
-        QByteArray data = Core()->assemble(input);
-        result = CutterCore::bytesToHexString(data).trimmed();
+        QStringList instructionList = input.split(';', QString::SkipEmptyParts);
+        QStringList assembledInstructions;
+        for (const QString &instruction : instructionList) {
+            QByteArray data = Core()->assemble(instruction.trimmed());
+            QString assembled = CutterCore::bytesToHexString(data).trimmed();
+            assembledInstructions.append(assembled);
+        }
+        result = assembledInstructions.join("\n");
     }
 
     if (result.isEmpty() || result.contains("invalid")) {
