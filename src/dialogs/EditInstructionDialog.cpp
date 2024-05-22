@@ -34,11 +34,15 @@ void EditInstructionDialog::on_buttonBox_accepted()
         QString trimmedInstruction = instruction.trimmed();
         if (editMode == EDIT_BYTES) {
             QByteArray data = CutterCore::hexStringToBytes(trimmedInstruction);
-            Core()->editBytes(offset, data);
+            Core()->editBytes(offset, data.toHex());
+            offset += data.size();
         } else if (editMode == EDIT_TEXT) {
-            Core()->editInstruction(offset, trimmedInstruction);
+            QByteArray data = Core()->assemble(trimmedInstruction);
+            if (!data.isEmpty()) {
+                Core()->editBytes(offset, data.toHex());
+                offset += data.size();
+            }
         }
-        offset += 4; // Assuming MIPS instructions are always 4 bytes long
     }
 
     accept();
